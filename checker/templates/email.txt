@@ -1,0 +1,15 @@
+Hello {{ issue.author }},
+
+We have detected the following keywords in your commit {{ issue.commit_sha }} in the repository {{ issue.repository }}:
+
+{{ issue.report }}
+
+This may indicate a violation of the DIT content policy, or it may just be that our script has detected a false positive.
+
+Please review the commit and indicate what remedial action has been taken using the following link:
+
+{{ issue.get_absolute_url }}
+
+Regards,
+
+DIT WebOps Team

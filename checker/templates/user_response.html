@@ -1,0 +1,76 @@
+{% extends 'bootstrap3/bootstrap3.html' %}
+{% load bootstrap3 %}
+
+{% bootstrap_css %}
+{% bootstrap_javascript %}
+
+{% bootstrap_messages %}
+
+{% block bootstrap3_content %}
+
+<div class="jumbotron text-center">
+    <h1>Github Content Alert</h1>
+    <p>Please review</p>
+</div>
+
+<div class="container">
+    <div class="row">
+        <div class="col-sm-6">
+            <table class="table">
+                <thead>
+                <tr>
+                    <th>Repository</th>
+                    <th>{{ issue.repository }}</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td>Commit</td>
+                    <td>{{ issue.commit_hash }}</td>
+                </tr>
+                <tr>
+                    <td>URL</td>
+                    <td><a href="{{ issue.url }}" target="_blank">{{ issue.url }}</a></td>
+                </tr>
+                <tr>
+                    <td>Author</td>
+                    <td>{{ issue.author }}</td>
+                </tr>
+                <tr>
+                    <td>Report</td>
+                    <td>{{ issue.report }}</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="col-sm-6">
+            {% bootstrap_messages %}
+
+            {% if issue.is_open %}
+            <form action="" method="post" class="form">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label class="control-label" for="id_action_taken">Describe action taken</label>
+                    <textarea name="comment" rows="10" title="" cols="40" id="id_action_taken" placeholder="Action taken" class="form-control"></textarea>
+                </div>
+
+                {% buttons %}
+
+                <button type="submit" class="btn btn-primary btn-lg btn-block pull-left" name="remedial_action_taken">
+                    {% bootstrap_icon "star" %} Remedial Action taken
+                </button>
+
+                <button type="submit" class="btn btn-danger btn-lg btn-block pull-right" name="action_not_required">
+                    {% bootstrap_icon "star" %} No Action Required
+                </button>
+
+                {% endbuttons %}
+            </form>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+{% endblock %}

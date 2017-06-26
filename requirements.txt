@@ -1,0 +1,5 @@
+Django==1.11
+PyGithub==1.34
+requests==2.13.0
+django-bootstrap3==8.2.3
+python-dateutil==2.6.0
