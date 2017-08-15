@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 from __future__ import unicode_literals
+
+import os
 import uuid
 
 from django.db import models
@@ -74,11 +76,12 @@ class IssueManager(models.Manager):
             ["File: {} contains {}".format(item[0], item[1]) for item in matches]
         )
 
-        email = commit.author.email
+        email = os.environ.get(
+            "OVERRIDE_EMAIL_ADDRESS", commit.author.email)
 
         status = 1 if email else 0
 
-        return self.create(
+        issue = self.create(
             status=status,
             repository=repository,
             commit_hash=commit.sha,
@@ -87,6 +90,11 @@ class IssueManager(models.Manager):
             author_email=email,
             report=matches_text
         )
+
+        if settings.NOTIFY_USER:
+            issue.notify_author()
+
+        return issue
 
 
 class Issue(models.Model):
@@ -126,8 +134,11 @@ class Issue(models.Model):
         return self.status in Issue.STATUS_REQUIRES_ACTION
 
     def notify_author(self):
+
         if self.author_email:
-            context = dict(issue=self)
+            context = dict(
+                issue=self,
+                host=settings.HOST)
 
             message = render_to_string("email.txt", context=context)
             send_mail(

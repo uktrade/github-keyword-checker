@@ -1,0 +1,9 @@
+
+--- 
+applications: 
+  -
+    memory: 1G
+    name: github-keyword-checker 
+    disk_quota: 2G
+    buildpack: python_buildpack
+    command: python manage.py runserver 0:$PORT

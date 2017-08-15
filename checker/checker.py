@@ -1,11 +1,16 @@
+import re
 import datetime as dt
 from dateutil.parser import parse as parse_date
+import sys
 import time
 
 from django.conf import settings
 
 from github import Github
 from .models import Exclude, Repository, Keyword, Issue
+
+
+KEYWORD_SEARCH_REGEX = "[^\w]{{1}}{keyword}[^\w]{{1}}"
 
 
 def get_respositories(client):
@@ -67,16 +72,16 @@ def process_patch(patch):
 def search_text(text, keywords):
     """
     Search text for keywords.
-
-    NOTE: This functionality may be too simplistic.  That is, it may
-    find lots of false positives because it searches all text (including code)
-    rather than separating content from code and only searching the content.
     """
     text = text.lower()
     found = []
 
     for keyword in keywords:
-        if keyword in text:
+        # NOTE: python maintains a regex cache, so re.compile is not strictly necessary
+        # (unless we're using
+        regex = KEYWORD_SEARCH_REGEX.format(keyword=keyword)
+
+        if re.search(regex, text, re.I):
             found.append(keyword)
 
     return found
@@ -112,6 +117,8 @@ def run_check(logger):
                 time.sleep(settings.GITHUB_QUERY_SLEEP_TIME)
 
             Repository.objects.set_last_check_time(repo.name, current_time)
+        except KeyboardInterrupt:
+            sys.exit()
         except:
             if commit_time:
                 Repository.objects.set_last_check_time(repo.name, commit_time)

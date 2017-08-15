@@ -147,6 +147,25 @@ class CheckerTestCase(TestCase):
         with self.assertRaises(Exception):
             process_patch("this is not a patch file")
 
+    def test_keyword_searching(self):
+
+        keyword = "defence"
+
+        valid_matches = [
+            "defence*",
+            "*defence",
+            "*defence*"
+        ]
+
+        invalid_matches = [
+            "   defences   ",
+            "1234defence123",
+            "aaadefenceaaa",
+            "adefence*",
+            "*defencez"
+        ]
+        pass
+
 
 # TODO: integration tests:
 # Test exceptions are logged
