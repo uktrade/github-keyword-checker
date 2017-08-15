@@ -73,7 +73,9 @@ class IssueManager(models.Manager):
     def create_from_commit(self, commit, repository, matches):
 
         matches_text = "\n".join(
-            ["File: {} contains {}".format(item[0], item[1]) for item in matches]
+            ["File: {} contains keywords: {}".format(
+                item[0],
+                ", ".join(item[1])) for item in matches]
         )
 
         email = os.environ.get(
