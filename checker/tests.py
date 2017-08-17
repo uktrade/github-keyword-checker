@@ -164,8 +164,6 @@ class CheckerTestCase(TestCase):
             "adefence*",
             "*defencez"
         ]
-        pass
-
 
 # TODO: integration tests:
 # Test exceptions are logged

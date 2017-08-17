@@ -7,7 +7,7 @@ from .models import Exclude, Keyword, Repository, Issue
 
 
 class RepositoryAdmin(admin.ModelAdmin):
-    list_display = ("check_time", "repository",)
+    list_display = ("repository", "commit")
 
 
 class IssueAdmin(admin.ModelAdmin):

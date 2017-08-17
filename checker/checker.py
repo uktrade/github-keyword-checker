@@ -1,16 +1,29 @@
 import re
-import datetime as dt
-from dateutil.parser import parse as parse_date
 import sys
+from ssl import SSLError
 import time
 
 from django.conf import settings
 
 from github import Github
-from .models import Exclude, Repository, Keyword, Issue
+from .models import Exclude, Repository, Keyword, Issue, Failure
 
 
 KEYWORD_SEARCH_REGEX = "[^\w]{{1}}{keyword}[^\w]{{1}}"
+
+
+def get_branches(repo):
+    """
+    return the tuple with the default branch and other branches
+    """
+
+    return [repo.default_branch] + [r.name for r in repo.get_branches() if r.name != repo.default_branch]
+
+def get_org_users(client):
+
+    org = client.get_organization(settings.GITHUB_ORGANISATION)
+
+    return [m.login for m in org.get_members()]
 
 
 def get_respositories(client):
@@ -18,7 +31,7 @@ def get_respositories(client):
     Return a list of all public repos not including excluded repos
     """
 
-    org = client.get_organization("uktrade")
+    org = client.get_organization(settings.GITHUB_ORGANISATION)
 
     exclude_list = [er.repository for er in Exclude.objects.all()]
 
@@ -27,14 +40,9 @@ def get_respositories(client):
             yield repo
 
 
-def get_commits(repository, since, until):
+def get_commits(repository, branch):
 
-    kwargs = dict(until=until)
-
-    if since:
-        kwargs["since"] = since
-
-    for commit in repository.get_commits(**kwargs):
+    for commit in repository.get_commits(sha=branch):
         yield commit
 
 
@@ -93,33 +101,41 @@ def run_check(logger):
 
     gh = Github(settings.GITHUB_ACCESS_TOKEN)
 
+    org_users = get_org_users(gh)
+
     for repo in get_respositories(gh):
-        current_time = dt.datetime.now()
-        last_checked = Repository.objects.get_last_check_time(repo.name)
 
-        logger.info("Checking {}".format(repo.name))
+        for branch in get_branches(repo):
 
-        commit_time = None
+            logger.info("Checking branch {} in {}".format(branch, repo.name))
 
-        try:
-            for commit in get_commits(repo, last_checked, current_time):
+            for commit in get_commits(repo, branch):
+                try:
+                    if Repository.objects.filter(
+                            repository=repo.name, commit=commit.sha).exists():
+                        # we've already scanned this far, assume older
+                        # commits have already been scanned
+                        break
 
-                commit_time = parse_date(commit.raw_data["commit"]["committer"]["date"]).replace(tzinfo=None)
+                    logger.info("Checking {}".format(commit.sha))
 
-                logger.info("Checking commit: {}".format(commit.sha))
+                    matches = scan_files(commit, keywords)
 
-                matches = scan_files(commit, keywords)
+                    if matches:
+                        logger.info("Found: {}".format(matches))
+                        Issue.objects.create_from_commit(
+                            commit, repo.name, matches, org_users)
 
-                if matches:
-                    logger.info("Found: {}".format(matches))
-                    Issue.objects.create_from_commit(commit, repo.name, matches)
+                    Repository.objects.create(
+                        commit=commit.sha, repository=repo.name)
 
-                time.sleep(settings.GITHUB_QUERY_SLEEP_TIME)
-
-            Repository.objects.set_last_check_time(repo.name, current_time)
-        except KeyboardInterrupt:
-            sys.exit()
-        except:
-            if commit_time:
-                Repository.objects.set_last_check_time(repo.name, commit_time)
-            logger.exception("An error has occurred")
+                    time.sleep(settings.GITHUB_QUERY_SLEEP_TIME)
+                except SSLError:
+                    logger.error("Connection error")
+                    Failure.objects.create(
+                        repository=repo.name, branch=branch, commit=commit.sha)
+                except KeyboardInterrupt:
+                    sys.exit()
+                except:
+                    import pdb; pdb.set_trace()
+                    logger.exception("An error has occurred")

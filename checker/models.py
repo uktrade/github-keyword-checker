@@ -39,29 +39,35 @@ class Keyword(models.Model):
 
 
 class RepositoryManager(models.Manager):
-    def get_last_check_time(self, repository):
+    def get_last_check(self, repository):
         last = self.filter(repository=repository).order_by("-id").first()
 
         if last:
-            return last.check_time
+            return last.check_time, last.hash
         else:
-            return None
+            return None, None
 
-    def set_last_check_time(self, repository, last_checked):
+    def set_last_check(self, repository, last_checked, commit_hash):
         self.get_or_create(
             repository=repository,
-            defaults={"check_time": last_checked})
+            defaults={"check_time": last_checked, "hash": commit_hash})
+
+
+class Failure(models.Model):
+    commit = models.CharField(max_length=255)
+    repository = models.CharField(max_length=255)
+    branch = models.CharField(max_length=255)
 
 
 class Repository(models.Model):
 
-    check_time = models.DateTimeField(
-        help_text="The last time the github API was queried for this repo.")
+    checked = models.DateTimeField(auto_now_add=True, blank=True, null=True)
+    commit = models.CharField(blank=True, null=True, max_length=255)
 
     repository = models.CharField(max_length=255)
 
     def __unicode__(self):
-        return "{} - {}".format(self.repository, self.check_time)
+        return "{} - {}".format(self.repository, self.hash)
 
     objects = RepositoryManager()
 
@@ -70,7 +76,7 @@ class Repository(models.Model):
 
 
 class IssueManager(models.Manager):
-    def create_from_commit(self, commit, repository, matches):
+    def create_from_commit(self, commit, repository, matches, org_users):
 
         matches_text = "\n".join(
             ["File: {} contains keywords: {}".format(
@@ -78,16 +84,28 @@ class IssueManager(models.Manager):
                 ", ".join(item[1])) for item in matches]
         )
 
-        email = os.environ.get(
-            "OVERRIDE_EMAIL_ADDRESS", commit.author.email)
+        if commit.author:
+            # commit.autohr filed is not always set
+            login = commit.author.login
+            email = commit.author.email
+        else:
+            login, email = "", ""
 
-        status = 1 if email else 0
+        email = os.environ.get(
+            "OVERRIDE_EMAIL_ADDRESS", email)
+
+        if not email:
+            status = Issue.STATUS_NO_EMAIL
+        elif login and login not in org_users:
+            status = Issue.STATUS_USER_NOT_IN_ORG
+        else:
+            status = Issue.STATUS_AWAITING_RESPONSE
 
         issue = self.create(
             status=status,
             repository=repository,
             commit_hash=commit.sha,
-            author=commit.author.login,
+            author=login,
             url=commit.html_url,
             author_email=email,
             report=matches_text
@@ -101,14 +119,21 @@ class IssueManager(models.Manager):
 
 class Issue(models.Model):
 
+    STATUS_NO_EMAIL = 0
+    STATUS_AWAITING_RESPONSE = 1
+    STATUS_USER_NOT_IN_ORG = 2
+    STATUS_RESOLVED_NO_ACTION_TAKEN = 3
+    STATUS_RESOLVED_ACTION_TAKEN = 4
+
     ACTION_CHOICES = (
-        (0, "Email address not available - unable to notify"),
-        (1, "Awaiting response"),
-        (2, "Resolved: No action required"),
-        (3, "Resolved: Action taken"),
+        (STATUS_NO_EMAIL, "Email address not available - unable to notify"),
+        (STATUS_AWAITING_RESPONSE, "Awaiting response"),
+        (STATUS_RESOLVED_NO_ACTION_TAKEN, "Resolved: No action required"),
+        (STATUS_RESOLVED_ACTION_TAKEN, "Resolved: Action taken"),
+        (STATUS_USER_NOT_IN_ORG, "Author no longer works for organisation")
     )
 
-    STATUS_REQUIRES_ACTION = [0, 1]
+    STATUS_REQUIRES_ACTION = [STATUS_NO_EMAIL, STATUS_AWAITING_RESPONSE, STATUS_USER_NOT_IN_ORG]
 
     uuid = models.UUIDField(default=uuid.uuid4, editable=False, unique=True)
     repository = models.CharField(max_length=255)
@@ -148,7 +173,12 @@ class Issue(models.Model):
                 settings.NOTIFY_EMAIL_FROM, [self.author_email])
 
     def mark_resolved(self, action_taken, comment):
-        status = 3 if action_taken else 2
+
+        if action_taken:
+            status = Issue.STATUS_RESOLVED_NO_ACTION_TAKEN
+        else:
+            status = Issue.STATUS_RESOLVED_NO_ACTION_TAKEN
+
         self.status = status
         self.author_response = comment
         self.save()
