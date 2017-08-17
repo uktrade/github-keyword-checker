@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 
 from django.contrib import admin
 
-from .models import Exclude, Keyword, Repository, Issue
+from .models import Exclude, Keyword, Repository, Issue, Failure
 
 
 class RepositoryAdmin(admin.ModelAdmin):
@@ -25,5 +25,6 @@ class IssueAdmin(admin.ModelAdmin):
 
 admin.site.register(Exclude)
 admin.site.register(Keyword)
+admin.site.register(Failure)
 admin.site.register(Repository, RepositoryAdmin)
 admin.site.register(Issue, IssueAdmin)

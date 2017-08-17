@@ -43,6 +43,9 @@ class Failure(models.Model):
     repository = models.CharField(max_length=255)
     branch = models.CharField(max_length=255)
 
+    def __unicode__(self):
+        return "{} / {} / {}".format(self.repository, self.branch, self.commit)
+
 
 class Repository(models.Model):
 
