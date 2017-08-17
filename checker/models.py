@@ -38,21 +38,6 @@ class Keyword(models.Model):
         return self.text
 
 
-class RepositoryManager(models.Manager):
-    def get_last_check(self, repository):
-        last = self.filter(repository=repository).order_by("-id").first()
-
-        if last:
-            return last.check_time, last.hash
-        else:
-            return None, None
-
-    def set_last_check(self, repository, last_checked, commit_hash):
-        self.get_or_create(
-            repository=repository,
-            defaults={"check_time": last_checked, "hash": commit_hash})
-
-
 class Failure(models.Model):
     commit = models.CharField(max_length=255)
     repository = models.CharField(max_length=255)
@@ -68,8 +53,6 @@ class Repository(models.Model):
 
     def __unicode__(self):
         return "{} - {}".format(self.repository, self.hash)
-
-    objects = RepositoryManager()
 
     class Meta:
         verbose_name_plural = "Repositories"
