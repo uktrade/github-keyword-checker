@@ -128,7 +128,7 @@ class Issue(models.Model):
 
     author = models.CharField(max_length=255)
     author_email = models.EmailField(max_length=255, blank=True, null=True)
-    author_response = models.TextField()
+    author_response = models.TextField(null=True, blank=True)
 
     url = models.URLField(null=True, blank=True)
 
