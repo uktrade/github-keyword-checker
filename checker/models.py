@@ -166,5 +166,5 @@ class Issue(models.Model):
         self.author_response = comment
         self.save()
 
-        if settings.NOTIFY_AUTHOR:
+        if settings.NOTIFY_USER:
             self.notify_author()
