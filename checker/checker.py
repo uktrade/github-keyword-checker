@@ -6,6 +6,7 @@ import time
 from django.conf import settings
 
 from github import Github
+from github.GithubException import GithubException
 from .models import Exclude, Repository, Keyword, Issue, Failure
 
 
@@ -41,9 +42,12 @@ def get_respositories(client):
 
 
 def get_commits(repository, branch):
-
-    for commit in repository.get_commits(sha=branch):
-        yield commit
+    try:
+        for commit in repository.get_commits(sha=branch):
+            yield commit
+    except GithubException:
+        # check for 409 code?
+        return
 
 
 def scan_files(commit, keywords):
@@ -107,7 +111,7 @@ def run_check(logger):
 
         for branch in get_branches(repo):
 
-            logger.info("Checking branch {} in {}".format(branch, repo.name))
+            logger.info("Checking {} branch {}".format(repo.name, branch))
 
             for commit in get_commits(repo, branch):
                 try:
@@ -137,5 +141,4 @@ def run_check(logger):
                 except KeyboardInterrupt:
                     sys.exit()
                 except:
-                    import pdb; pdb.set_trace()
                     logger.exception("An error has occurred")
